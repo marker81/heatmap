@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DSCR Heatmap – Palm Beach</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; }
+  #header { padding: 16px 20px; background: #fff; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  #header h1 { font-size: 16px; font-weight: 600; color: #1a1a1a; }
+  #header p { font-size: 13px; color: #777; margin-top: 2px; }
+  #legend { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .leg-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #555; }
+  .leg-swatch { width: 28px; height: 11px; border-radius: 2px; }
+  .leg-note { font-size: 11px; color: #999; margin-left: 8px; }
+  #map { width: 100%; height: calc(100vh - 80px); }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div>
+    <h1>DSCR Heatmap – Palm Beach Area</h1>
+    <p>100 properties across 14 zip codes · click any marker for details</p>
+  </div>
+  <div id="legend">
+    <div class="leg-item"><div class="leg-swatch" style="background:#d73027"></div>≤1.49</div>
+    <div class="leg-item"><div class="leg-swatch" style="background:#fc8d59"></div>1.50–1.59</div>
+    <div class="leg-item"><div class="leg-swatch" style="background:#fee090"></div>1.60–1.69</div>
+    <div class="leg-item"><div class="leg-swatch" style="background:#91cf60"></div>1.70–1.84</div>
+    <div class="leg-item"><div class="leg-swatch" style="background:#1a9641"></div>1.85+</div>
+    <div class="leg-note">Circle size = number of properties</div>
+  </div>
+</div>
+
+<div id="map"></div>
+
+<script>
+const zipData = [
+  { zip:33401, city:'West Palm Beach',    lat:26.7153, lng:-80.0534, avg:1.574, min:1.374, max:1.908, count:12, avgPrice:393325 },
+  { zip:33405, city:'West Palm Beach',    lat:26.6812, lng:-80.0534, avg:1.631, min:1.371, max:1.974, count:7,  avgPrice:553286 },
+  { zip:33406, city:'West Palm Beach',    lat:26.6580, lng:-80.1000, avg:1.664, min:1.375, max:1.848, count:3,  avgPrice:399630 },
+  { zip:33407, city:'West Palm Beach',    lat:26.7430, lng:-80.0750, avg:1.696, min:1.358, max:2.460, count:11, avgPrice:560909 },
+  { zip:33408, city:'North Palm Beach',   lat:26.8290, lng:-80.0534, avg:1.551, min:1.381, max:2.125, count:7,  avgPrice:283837 },
+  { zip:33409, city:'West Palm Beach',    lat:26.6940, lng:-80.1180, avg:1.571, min:1.392, max:2.096, count:6,  avgPrice:346167 },
+  { zip:33410, city:'Palm Beach Gardens', lat:26.8440, lng:-80.1010, avg:1.695, min:1.356, max:2.017, count:7,  avgPrice:432686 },
+  { zip:33411, city:'Royal Palm Beach',   lat:26.7100, lng:-80.2180, avg:1.524, min:1.363, max:1.800, count:14, avgPrice:242479 },
+  { zip:33412, city:'West Palm Beach',    lat:26.7830, lng:-80.1960, avg:1.435, min:1.413, max:1.457, count:2,  avgPrice:344000 },
+  { zip:33413, city:'West Palm Beach',    lat:26.6730, lng:-80.1480, avg:1.860, min:1.860, max:1.860, count:1,  avgPrice:799900 },
+  { zip:33414, city:'Royal Palm Beach',   lat:26.6670, lng:-80.2430, avg:1.508, min:1.508, max:1.508, count:1,  avgPrice:375000 },
+  { zip:33415, city:'West Palm Beach',    lat:26.6500, lng:-80.1330, avg:1.739, min:1.739, max:1.739, count:1,  avgPrice:365000 },
+  { zip:33417, city:'West Palm Beach',    lat:26.7270, lng:-80.1150, avg:1.596, min:1.397, max:1.912, count:10, avgPrice:192430 },
+  { zip:33418, city:'Palm Beach Gardens', lat:26.8710, lng:-80.1340, avg:1.516, min:1.376, max:1.801, count:17, avgPrice:326774 },
+];
+
+function dscrColor(v) {
+  if (v >= 1.85) return '#1a9641';
+  if (v >= 1.70) return '#91cf60';
+  if (v >= 1.60) return '#fee090';
+  if (v >= 1.50) return '#fc8d59';
+  return '#d73027';
+}
+function labelColor(v) {
+  if (v >= 1.60 && v < 1.70) return '#6b4f00';
+  if (v >= 1.70) return '#0d4a1e';
+  return '#fff';
+}
+
+const map = L.map('map').setView([26.755, -80.13], 11);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
+
+zipData.forEach(d => {
+  const r = Math.max(14, 8 + d.count * 2.4);
+  const col = dscrColor(d.avg);
+  const lc = labelColor(d.avg);
+
+  L.circleMarker([d.lat, d.lng], {
+    radius: r,
+    fillColor: col,
+    color: 'rgba(255,255,255,0.9)',
+    weight: 2,
+    opacity: 1,
+    fillOpacity: 0.88
+  }).addTo(map).bindPopup(`
+    <div style="font-family:-apple-system,sans-serif;min-width:175px;">
+      <div style="font-size:15px;font-weight:600;margin-bottom:2px;">ZIP ${d.zip}</div>
+      <div style="font-size:12px;color:#888;margin-bottom:10px;">${d.city}</div>
+      <table style="width:100%;font-size:13px;border-collapse:collapse;">
+        <tr><td style="color:#999;padding:3px 0;">Avg DSCR</td><td style="text-align:right;font-weight:700;font-size:15px;">${d.avg.toFixed(3)}</td></tr>
+        <tr><td style="color:#999;padding:3px 0;">Range</td><td style="text-align:right;">${d.min.toFixed(2)} – ${d.max.toFixed(2)}</td></tr>
+        <tr><td style="color:#999;padding:3px 0;">Properties</td><td style="text-align:right;">${d.count}</td></tr>
+        <tr><td style="color:#999;padding:3px 0;">Avg price</td><td style="text-align:right;">$${(d.avgPrice/1000).toFixed(0)}k</td></tr>
+      </table>
+    </div>
+  `, { maxWidth: 220 });
+
+  L.marker([d.lat, d.lng], {
+    icon: L.divIcon({
+      className: '',
+      html: `<div style="width:${r*2}px;height:${r*2}px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:${lc};pointer-events:none;line-height:1.1;text-align:center;">${d.zip}</div>`,
+      iconSize: [r*2, r*2],
+      iconAnchor: [r, r]
+    }),
+    interactive: false
+  }).addTo(map);
+});
+</script>
+</body>
+</html>
